@@ -1,11 +1,15 @@
+#include <dirent.h>
+#include <fcntl.h> 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <dirent.h>
 #include <sys/stat.h>
-#include <fcntl.h> 
-#include <inttypes.h>
+#include <unistd.h>
+
+
+
+
 #define CMDLINE_MAX 512
 
 void sytaxchecking(char *cmd){
@@ -42,7 +46,6 @@ void sytaxchecking(char *cmd){
         else if (!strncmp(cmd, ">",1)) {
                 /* > cannot be at the start */
                 fprintf(stderr, "Error: missing command\n");
-
         }
 
         else if (!strncmp(cmd, "|",1)|| !strncmp(cmd, " |",2)) {    
@@ -117,7 +120,6 @@ void Cd(char *cmd, int *retval){
                 *retval = 1;
         }
        
-
         fprintf(stderr, "\n+ completed '%s' [%d]\n", cmd, *retval);
 
 }
@@ -161,52 +163,50 @@ void Sls(char *cmd, int retval){
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
 }
 
-void Ouputdirection(char *cmd, int retval){
+void Outputdirection(char *cmd, int retval) {
+    // Save the original stdout file descriptor
+    int original_stdout = dup(STDOUT_FILENO);
 
-        /* get ready for using strstr */
-        char coppy[CMDLINE_MAX];
-        char *token;
-        char *check;
-        strcpy (coppy, cmd);
-        check = strstr(coppy, "<<");
+    /* get ready for using strstr */
+    char coppy[CMDLINE_MAX];
+    char *token;
+    char *check;
+    strcpy(coppy, cmd);
+    check = strstr(coppy, "<<");
 
-        /* if this file should be appended  */
-        if(check != NULL ){
+    /* if this file should be appended  */
+    if (check != NULL) {
+        /* finding location of <<, get the output file name, then write in the next line.  */
+        strcpy(coppy, cmd);
+        token = strstr(coppy, "<<");
+        token += 3;
 
-                /* finding loaction of <<, get the output file name, then write in next line.  */
+        // Redirect stdout to the specified file in "append" mode
+        freopen(token, "a", stdout);
 
-                strcpy (coppy, cmd);
-                token = strstr(coppy,"<<");
-                token +=3;  
-                /* writing same content with stderr */
+        // Close the redirected stdout
+        fclose(stderr);
+    } else {
+        /* if this file should not be appended  */
+        strcpy(coppy, cmd);
+        token = strtok(cmd, "<");
+        token = strtok(NULL, " ");
 
-                freopen(coppy, "a", stdout); 
-                fclose(stderr); 
-
-        } else{
-
-        /* if this file should be not appended  */
-
-                strcpy (coppy, cmd);
-                token = strtok(cmd,"<");
-                token = strtok(NULL," ");
-
-                /* writing new from the first line */
-                int file = open(token,  O_WRONLY | O_CREAT, 0666);
-                if (file == -1){
-                    perror("Error opening file");  // Use perror to print the error message
-                    fprintf(stderr, "file open error");
-
-                }
-                else {
-                    dup2(file, STDOUT_FILENO);
-                close(file);
-                }
-
-      
-
+        // Open the file for writing (creating if it doesn't exist)
+        int file = open(token, O_WRONLY | O_CREAT, 0666);
+        if (file == -1) {
+            perror("Error opening file");
+            fprintf(stderr, "file open error");
+        } else {
+            // Redirect stdout to the specified file
+            dup2(file, STDOUT_FILENO);
+            close(file);
         }
+    }
 
+    // Restore the original stdout file descriptor
+    dup2(original_stdout, STDOUT_FILENO);
+    close(original_stdout);
 }
 
 void Piping(char *cmd, int retval) {
@@ -229,11 +229,23 @@ void Piping(char *cmd, int retval) {
 int fork_exec_wait(char cmd[CMDLINE_MAX]) {
   int status = -1;
   pid_t pid;
-  char *args[] = {cmd, NULL};
+  // Tokenize the command and arguments
+    char *args[CMDLINE_MAX];
+    char *token = strtok(cmd, " ");
+    int i = 0;
+
+    while (token != NULL) {
+        args[i++] = token;
+        token = strtok(NULL, " ");
+    }
+
+    args[i] = NULL;  // Null-terminate the array
+
+//   char *args[] = {cmd, NULL};
   pid = fork();
   if (pid == 0) {
     /* Child */
-    execvp(cmd, args);
+    execvp(args[0], args);
     perror("execvp");
     exit(1);
 
@@ -256,13 +268,24 @@ int main(void)
             char *nl;
             int retval;
             char checkingRdirectAndPiping[CMDLINE_MAX];
-
+        //     cmd[0] = '\0';
             /* Print prompt */
             printf("sshell$ ");
             fflush(stdout);
 
+
+          if (fgets(cmd, CMDLINE_MAX, stdin) == NULL) {
+            // Check for errors or end-of-file
+            perror("Error reading command");
+            exit(EXIT_FAILURE);
+        }
             /* Get command line */
             fgets(cmd, CMDLINE_MAX, stdin);
+
+        //  printf("finally command is now %s", cmd);
+
+
+
 
             /* Print command line if stdin is not provided by terminal */
             if (!isatty(STDIN_FILENO)) {
@@ -282,7 +305,6 @@ int main(void)
             sytaxchecking(cmd);
             if (!strcmp(cmd, "exit")) {
                     Exit(cmd, retval);
-
             }
 
             else if (!strcmp(cmd, "pwd")){
@@ -304,7 +326,7 @@ int main(void)
                     
 
             if (strtok(checkingRdirectAndPiping,"<")!=NULL){
-                    Ouputdirection(cmd, retval);
+                    Outputdirection(cmd, retval);
             }
          
             strcpy (checkingRdirectAndPiping, cmd);
@@ -343,3 +365,5 @@ https://m.blog.naver.com/neakoo35/30133294306 detail of freeopen()
 https://velog.io/@hamys96/pipex2-%ED%8C%8C%EC%9D%B4%ED%94%84-%EA%B5%AC%ED%98%84 pipe(); pid1 = fork();
 https://nomad-programmer.tistory.com/110 concept for pipe.
 */
+
+
