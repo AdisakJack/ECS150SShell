@@ -163,50 +163,50 @@ void Sls(char *cmd, int retval){
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
 }
 
-void Outputdirection(char *cmd, int retval) {
-    // Save the original stdout file descriptor
-    int original_stdout = dup(STDOUT_FILENO);
+void Ouputdirection(char *cmd, int retval){
 
-    /* get ready for using strstr */
-    char coppy[CMDLINE_MAX];
-    char *token;
-    char *check;
-    strcpy(coppy, cmd);
-    check = strstr(coppy, "<<");
+        /* get ready for using strstr */
+        char coppy[CMDLINE_MAX];
+        char *token;
+        char *check;
+        strcpy (coppy, cmd);
+        check = strstr(coppy, "<<");
 
-    /* if this file should be appended  */
-    if (check != NULL) {
-        /* finding location of <<, get the output file name, then write in the next line.  */
-        strcpy(coppy, cmd);
-        token = strstr(coppy, "<<");
-        token += 3;
+        /* if this file should be appended  */
+        if(check != NULL ){
 
-        // Redirect stdout to the specified file in "append" mode
-        freopen(token, "a", stdout);
+                /* finding loaction of <<, get the output file name, then write in next line.  */
 
-        // Close the redirected stdout
-        fclose(stderr);
-    } else {
-        /* if this file should not be appended  */
-        strcpy(coppy, cmd);
-        token = strtok(cmd, "<");
-        token = strtok(NULL, " ");
+                strcpy (coppy, cmd);
+                token = strstr(coppy,"<<");
+                token +=3;  
+                /* writing same content with stderr */
 
-        // Open the file for writing (creating if it doesn't exist)
-        int file = open(token, O_WRONLY | O_CREAT, 0666);
-        if (file == -1) {
-            perror("Error opening file");
-            fprintf(stderr, "file open error");
-        } else {
-            // Redirect stdout to the specified file
-            dup2(file, STDOUT_FILENO);
-            close(file);
+                freopen(coppy, "a", stdout); 
+                fclose(stderr); 
+
+        } else{
+
+        /* if this file should be not appended  */
+
+                strcpy (coppy, cmd);
+                token = strtok(cmd,"<");
+                token = strtok(NULL," ");
+
+                /* writing new from the first line */
+                int file = open(token,  O_WRONLY | O_CREAT, 0666);
+                if (file == -1){
+                    perror("Error opening file");  // Use perror to print the error message
+                    fprintf(stderr, "file open error");
+
+                }
+                else {
+                    dup2(file, STDOUT_FILENO);
+                close(file);
+                }
+
         }
-    }
 
-    // Restore the original stdout file descriptor
-    dup2(original_stdout, STDOUT_FILENO);
-    close(original_stdout);
 }
 
 void Piping(char *cmd, int retval) {
@@ -268,22 +268,17 @@ int main(void)
             char *nl;
             int retval;
             char checkingRdirectAndPiping[CMDLINE_MAX];
-        //     cmd[0] = '\0';
+            
             /* Print prompt */
             printf("sshell$ ");
+        //     printf("command is %s", cmd);
             fflush(stdout);
 
+                // printf("command is now %s", cmd);
 
-          if (fgets(cmd, CMDLINE_MAX, stdin) == NULL) {
-            // Check for errors or end-of-file
-            perror("Error reading command");
-            exit(EXIT_FAILURE);
-        }
+
             /* Get command line */
             fgets(cmd, CMDLINE_MAX, stdin);
-
-        //  printf("finally command is now %s", cmd);
-
 
 
 
@@ -305,6 +300,7 @@ int main(void)
             sytaxchecking(cmd);
             if (!strcmp(cmd, "exit")) {
                     Exit(cmd, retval);
+
             }
 
             else if (!strcmp(cmd, "pwd")){
@@ -326,7 +322,7 @@ int main(void)
                     
 
             if (strtok(checkingRdirectAndPiping,"<")!=NULL){
-                    Outputdirection(cmd, retval);
+                    Ouputdirection(cmd, retval);
             }
          
             strcpy (checkingRdirectAndPiping, cmd);
