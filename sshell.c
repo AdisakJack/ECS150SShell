@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <fcntl.h> 
+#include <inttypes.h>
 #define CMDLINE_MAX 512
 
 void sytaxchecking(char *cmd){
@@ -94,26 +95,36 @@ void Exit(char *cmd, int retval){
 }
 
 /* cd command */
-void Cd(char *cmd, int retval){
+void Cd(char *cmd, int *retval){
 
         /* setting path for chdir */
+        // printf("Hello cd received");
         char coppy[CMDLINE_MAX];
         strcpy (coppy, cmd);
         char *token;
         token = strtok(coppy," ");
         token = strtok(NULL," ");
-        if(chdir(token)!=0){
-                retval = 1;
-                fprintf(stderr, "Error: cannot cd into directory\n", cmd, retval);
-                return;
+        if(token != NULL)
+        {
+             if(chdir(token)!=0){
+                *retval = 1;
+               fprintf(stderr, "Error: cannot cd into directory '%s' [%d]\n", cmd, *retval);
+                
+                  }
         }
+        else{
+                 fprintf(stderr, "Error: missing argument for cd\n");
+                *retval = 1;
+        }
+       
 
-        fprintf(stderr, "\n+ completed '%s' [%d]\n", cmd, retval);
+        fprintf(stderr, "\n+ completed '%s' [%d]\n", cmd, *retval);
 
 }
 
 /* pwd command */
 void Pwd(char *cmd, int retval){
+        // printf("Hello pwd received");
         char buff[CMDLINE_MAX];
         getcwd(buff, CMDLINE_MAX);
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
@@ -143,7 +154,7 @@ void Sls(char *cmd, int retval){
                         continue;
                 }
 
-                fprintf(stdout, "%s (%ld bytes)\n", directory->d_name, file_info.st_size);
+                fprintf(stdout, "%s (%" PRIu64 " bytes)\n", directory->d_name, (uint64_t)file_info.st_size);
         }
 
         closedir(Opendirectory);
@@ -182,15 +193,17 @@ void Ouputdirection(char *cmd, int retval){
 
                 /* writing new from the first line */
                 int file = open(token,  O_WRONLY | O_CREAT, 0666);
-                if (file == NULL){
-                        fprintf(stderr, "file open error");
+                if (file == -1){
+                    perror("Error opening file");  // Use perror to print the error message
+                    fprintf(stderr, "file open error");
 
                 }
-
-                /*   */
-
-                dup2(file, STDOUT_FILENO);
+                else {
+                    dup2(file, STDOUT_FILENO);
                 close(file);
+                }
+
+      
 
         }
 
@@ -277,16 +290,18 @@ int main(void)
             }
 
             else if (!strncmp(cmd, "cd",2)) {
-                    Cd(cmd, retval);
+                    Cd(cmd, &retval);
             }
 
             else if (!strcmp(cmd, "sls")){
                     Sls(cmd, retval);
             }
-
-            /* Regular command */
+            else{
+                  /* Regular command */
             retval = fork_exec_wait(cmd);
-            strcpy (checkingRdirectAndPiping, cmd);             
+            strcpy (checkingRdirectAndPiping, cmd);   
+            }
+                    
 
             if (strtok(checkingRdirectAndPiping,"<")!=NULL){
                     Ouputdirection(cmd, retval);
@@ -328,5 +343,3 @@ https://m.blog.naver.com/neakoo35/30133294306 detail of freeopen()
 https://velog.io/@hamys96/pipex2-%ED%8C%8C%EC%9D%B4%ED%94%84-%EA%B5%AC%ED%98%84 pipe(); pid1 = fork();
 https://nomad-programmer.tistory.com/110 concept for pipe.
 */
-
-
