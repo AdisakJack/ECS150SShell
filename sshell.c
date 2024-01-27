@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 #include <fcntl.h> 
 #define CMDLINE_MAX 512
-void sytaxchecking(char *cmd){
+void syntaxchecking(char *cmd){
         char coppy[CMDLINE_MAX];
         /* two variable extra to use strtok or strstr */
         char *token;
@@ -112,12 +112,12 @@ void Sls(char *cmd, int retval){
                 if (stat(directory->d_name, &file_info) != 0) {
                         continue;
                 }
-                fprintf(stdout, "%s (%ld bytes)\n", directory->d_name, file_info.st_size);
+                fprintf(stdout, "%s (%lld bytes)\n", directory->d_name, file_info.st_size);
         }
         closedir(Opendirectory);
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
 }
-void Ouputdirection(char *cmd, int retval){
+void Outputdirection(char *cmd, int retval){
         /* get ready for using strstr */
         char coppy[CMDLINE_MAX];
         char *step;
@@ -129,8 +129,11 @@ void Ouputdirection(char *cmd, int retval){
                 }
         }
         step = strtok(coppy, " ");
+
         while(step != NULL){
+
                 if (!strcmp(step, "echo")) {
+
                         step = strtok(NULL," ");
                         if (!strcmp(report, ""))
                                 strcat(report, step);
@@ -141,14 +144,22 @@ void Ouputdirection(char *cmd, int retval){
                         fprintf(stdout,"%s\n",report); 
                 }
                 /* if this file should be appended  */
+
                 step = strtok(NULL, " ");
+                if(step == NULL)
+                {
+                        break;
+                }
                 if(!strcmp(step, ">>")){
                         /* finding loaction of <<, get the output file name, then write in next line.  */
                         step = strtok(NULL, " ");
                         /* writing same content with stderr */
                         freopen(step, "a", stdout); 
                         fclose(stderr); 
+                                         printf("actually after append\n");
+
                 } 
+
                 else if(!strcmp(step,">")){
                 /* if this file should be not appended  */
                         step = strtok(NULL, " ");
@@ -157,11 +168,14 @@ void Ouputdirection(char *cmd, int retval){
                         if (file == -1){
                                 fprintf(stderr, "file open error");
                         }
+                        printf("before dup2 append\n");
+
                         dup2(file, STDERR_FILENO);
                         close(file);
                         step = strtok(NULL, " ");
                 }
                 else {
+
                         break;
                 }
         }
@@ -212,6 +226,7 @@ int fork_exec_wait(char cmd[CMDLINE_MAX]) {
                 perror("fork");
                 exit(1);
         }
+
         return WEXITSTATUS(status);
 }
 int main(void)
@@ -236,7 +251,7 @@ int main(void)
             if (nl)
                     *nl = '\0';
             /* Builtin command */
-            sytaxchecking(cmd);
+            syntaxchecking(cmd);
             if (!strcmp(cmd, "exit")) {
                     Exit(cmd, retval);
             }
@@ -251,12 +266,14 @@ int main(void)
             }
             /* Regular command */
             retval = fork_exec_wait(cmd);
+
             strcpy (checkingRdirectAndPiping, cmd);             
             if (strtok(checkingRdirectAndPiping,"<")!=NULL){
-                    Ouputdirection(cmd, retval);
+                    Outputdirection(cmd, retval);
             }
             strcpy (checkingRdirectAndPiping, cmd);
             if(strtok(checkingRdirectAndPiping,"|")!=NULL){
+
                     Piping(cmd, retval);
             }
     }
