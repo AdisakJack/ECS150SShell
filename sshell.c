@@ -6,14 +6,13 @@
 #include <sys/stat.h>
 #include <fcntl.h> 
 #define CMDLINE_MAX 512
-
-void syntaxchecking(char *cmd){
+void sytaxchecking(char *cmd){
         char coppy[CMDLINE_MAX];
         /* two variable extra to use strtok or strstr */
         char *token;
         char *check; 
         strcpy (coppy, cmd);   
-        /* starts checking each syntax of command */
+        /* starts checking each syntax of comand */
         if (!strncmp(cmd, "exit",4)) {
                 /* checking if some word behind exit */
                 token = strtok(coppy," ");   
@@ -113,48 +112,60 @@ void Sls(char *cmd, int retval){
                 if (stat(directory->d_name, &file_info) != 0) {
                         continue;
                 }
-                fprintf(stdout, "%s (%lld bytes)\n", directory->d_name, file_info.st_size);
+                fprintf(stdout, "%s (%ld bytes)\n", directory->d_name, file_info.st_size);
         }
         closedir(Opendirectory);
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
 }
-void Outputdirection(char *cmd, int retval){
+void Ouputdirection(char *cmd, int retval){
         /* get ready for using strstr */
         char coppy[CMDLINE_MAX];
-        char *token;
-        char *check;
+        char *step;
+        char report[CMDLINE_MAX]="";
         strcpy (coppy, cmd);
-        check = strstr(coppy, "<<");
-        strcpy (coppy, cmd);
-        if (!strncmp(coppy, "echo",4)) {
-            token = strtok(coppy," ");
-            token = strtok(NULL," ");
-            fprintf(stdout,"%s\n",token);
-        }
-        strcpy (coppy, cmd);
-        /* if this file should be appended  */
-        if(check != NULL ){
-                /* finding loaction of <<, get the output file name, then write in next line.  */
-                strcpy (coppy, cmd);
-                token = strstr(coppy,"<<");
-                token +=3;  
-                /* writing same content with stderr */
-                freopen(coppy, "a", stdout); 
-                fclose(stderr); 
-        } else{
-        /* if this file should be not appended  */
-                strcpy (coppy, cmd);
-                token = strtok(coppy,"<");
-                token = strtok(NULL," ");
-                /* writing new from the first line */
-                int file = open(token,  O_WRONLY | O_CREAT, 0666);
-                if (file == -1){
-                        fprintf(stderr, "file open error\n");
+        for (int i = 0; i < strlen(cmd); i++) {
+                if (coppy[i] == '\n') {
+                        coppy[i] = ' '; 
                 }
-                /*   */
-                dup2(file, STDOUT_FILENO);
-                close(file);
         }
+        step = strtok(coppy, " ");
+        while(step != NULL){
+                if (!strcmp(step, "echo")) {
+                        step = strtok(NULL," ");
+                        if (!strcmp(report, ""))
+                                strcat(report, step);
+                        else{
+                                strcat(report, "\n");
+                                strcat(report, step);
+                        }
+                        fprintf(stdout,"%s\n",report); 
+                }
+                /* if this file should be appended  */
+                step = strtok(NULL, " ");
+                if(!strcmp(step, ">>")){
+                        /* finding loaction of <<, get the output file name, then write in next line.  */
+                        step = strtok(NULL, " ");
+                        /* writing same content with stderr */
+                        freopen(step, "a", stdout); 
+                        fclose(stderr); 
+                } 
+                else if(!strcmp(step,">")){
+                /* if this file should be not appended  */
+                        step = strtok(NULL, " ");
+                        /* writing new from the first line */
+                        int file = open(step,  O_WRONLY | O_CREAT, 0666);
+                        if (file == -1){
+                                fprintf(stderr, "file open error");
+                        }
+                        dup2(file, STDERR_FILENO);
+                        close(file);
+                        step = strtok(NULL, " ");
+                }
+                else {
+                        break;
+                }
+        }
+ 
 }
 void Piping(char *cmd, int retval) {
     int pipe_fd[2];
@@ -175,7 +186,6 @@ int fork_exec_wait(char cmd[CMDLINE_MAX]) {
         pid_t pid;
         char coppy[CMDLINE_MAX];
         strcpy (coppy, cmd);
-        printf("enterd fork\n");
   // Tokenize the command and arguments
         char *args[CMDLINE_MAX];
         char *token = strtok(coppy, " ");
@@ -190,23 +200,17 @@ int fork_exec_wait(char cmd[CMDLINE_MAX]) {
         pid = fork();
         if (pid == 0) {
                 /* Child */
-                // printf("Child entered\n");
                 execvp(args[0], args);
-                                // printf("Child Done");
-
                 perror("execvp");
-
                 exit(1);
 
         } else if (pid > 0) {
                 /* Parent */
-                // printf("parent entered\n");
                 waitpid(pid, &status, 0);
-                //  printf("Child returned %d\n", WEXITSTATUS(status));
+                // printf("Child returned %d\n", WEXITSTATUS(status));
         } else {
                 perror("fork");
                 exit(1);
-                // printf("Neither parent or child\n");
         }
         return WEXITSTATUS(status);
 }
@@ -221,7 +225,6 @@ int main(void)
             printf("sshell$ ");
             fflush(stdout);
             /* Get command line */
-        //     printf("Cmd is now: %s", cmd);
             fgets(cmd, CMDLINE_MAX, stdin);
             /* Print command line if stdin is not provided by terminal */
             if (!isatty(STDIN_FILENO)) {
@@ -233,7 +236,7 @@ int main(void)
             if (nl)
                     *nl = '\0';
             /* Builtin command */
-            syntaxchecking(cmd);
+            sytaxchecking(cmd);
             if (!strcmp(cmd, "exit")) {
                     Exit(cmd, retval);
             }
@@ -250,9 +253,8 @@ int main(void)
             retval = fork_exec_wait(cmd);
             strcpy (checkingRdirectAndPiping, cmd);             
             if (strtok(checkingRdirectAndPiping,"<")!=NULL){
-                    Outputdirection(cmd, retval);
+                    Ouputdirection(cmd, retval);
             }
-            
             strcpy (checkingRdirectAndPiping, cmd);
             if(strtok(checkingRdirectAndPiping,"|")!=NULL){
                     Piping(cmd, retval);
