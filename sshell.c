@@ -156,23 +156,24 @@ void Outputdirection(char *cmd, int retval){
                         /* writing same content with stderr */
                         freopen(step, "a", stdout); 
                         fclose(stderr); 
-                                         printf("actually after append\n");
 
                 } 
 
                 else if(!strcmp(step,">")){
                 /* if this file should be not appended  */
                         step = strtok(NULL, " ");
+                        int fd;
                         /* writing new from the first line */
-                        int file = open(step,  O_WRONLY | O_CREAT, 0666);
-                        if (file == -1){
+                        fd = open("myfile.txt", O_WRONLY | O_CREAT, 0644);
+                        if (fd == -1){
                                 fprintf(stderr, "file open error");
                         }
-                        printf("before dup2 append\n");
+                          
 
-                        dup2(file, STDERR_FILENO);
-                        close(file);
+                        dup2(fd, STDERR_FILENO);
+                        close(fd);
                         step = strtok(NULL, " ");
+
                 }
                 else {
 
@@ -185,16 +186,22 @@ void Piping(char *cmd, int retval) {
     int pipe_fd[2];
     pid_t child_pid;
     pipe(pipe_fd);
+     int status = -1;
+
     child_pid = fork();
     if (child_pid == 0) {  // Child
         dup2(pipe_fd[0], STDIN_FILENO);
          perror("dup2");
                 exit(1);
     } else if (child_pid > 0){  // Parent
-        wait(NULL);
+        // wait(NULL);
+        waitpid(child_pid, &status, 0);
         dup2(pipe_fd[1], STDOUT_FILENO);
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
-    }
+    } else {
+                perror("fork");
+                exit(1);
+        }
 }
 
 
