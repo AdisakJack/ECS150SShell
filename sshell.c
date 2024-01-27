@@ -1,35 +1,26 @@
-#include <dirent.h>
-#include <fcntl.h> 
-#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <unistd.h>
-
-
-
-
+#include <dirent.h>
+#include <sys/stat.h>
+#include <fcntl.h> 
 #define CMDLINE_MAX 512
 
-void sytaxchecking(char *cmd){
-
+void syntaxchecking(char *cmd){
         char coppy[CMDLINE_MAX];
-
         /* two variable extra to use strtok or strstr */
         char *token;
         char *check; 
         strcpy (coppy, cmd);   
-        /* starts checking each syntax of comand */
+        /* starts checking each syntax of command */
         if (!strncmp(cmd, "exit",4)) {
-
                 /* checking if some word behind exit */
                 token = strtok(coppy," ");   
                 token = strtok(NULL, " ");
                 if (token != NULL) {
                     fprintf(stderr, "Error: too many process arguments\n");
                 }
-
         }        
         else if (!strncmp(cmd, "ls",2)) {
                 /* checking what type of words behind ls */
@@ -37,102 +28,74 @@ void sytaxchecking(char *cmd){
                 token = strtok(NULL, " ");
                 if (token != NULL) {
                         strcpy (coppy, cmd);
-                       /* passing error when pipe is behind ls */
+                        /* passing error when pipe is behind ls */
                         if(strstr(coppy, "|") == NULL)
                                 fprintf(stderr, "Error: too many process arguments\n");
                 }
         }
-
         else if (!strncmp(cmd, ">",1)) {
                 /* > cannot be at the start */
                 fprintf(stderr, "Error: missing command\n");
         }
-
         else if (!strncmp(cmd, "|",1)|| !strncmp(cmd, " |",2)) {    
                 /* pipe cannot be at the first */
                 fprintf(stderr, "Error: missing command\n");
-
         }
-
         /* get ready to use strstr */
         strcpy (coppy, cmd);     
         check = strstr(coppy, ">>");
         if (check!=NULL){
-
-            /* if no wards are behind >> or >, it will be error */
+                /* if no wards are behind >> or >, it will be error */
             if(*(check +2) == '\0')
                 fprintf(stderr, "Error: no output file\n");
             else if(strstr(check,"|")!=NULL)
                 fprintf(stderr, "Error: mislocated output redirection\n");
-
         }
-
         strcpy (coppy, cmd);     
         check = strstr(coppy, ">");
         if (check!=NULL){
             if(*(check +1) == '\0')
                 fprintf(stderr, "Error: no output file\n");
-
             else if(strstr(check,"|")!=NULL)
                 fprintf(stderr, "Error: mislocated output redirection\n");
-
         }        
-
         strcpy (coppy, cmd);     
         check = strstr(coppy, "|");
-
         /* something should be behind of pipe to excute. */
         if (check!=NULL&&*(check +1) == '\0'){
             fprintf(stderr, "Error: missing command\n");
-
         }
-
 }
-
 /* exit command */
 void Exit(char *cmd, int retval){
-
         fprintf(stderr, "Bye...\n+ completed '%s' [%d]\n", cmd, retval);
         exit(0);
-
 }
-
 /* cd command */
-void Cd(char *cmd, int *retval){
-
+void Cd(char *cmd, int retval){
         /* setting path for chdir */
-        // printf("Hello cd received");
         char coppy[CMDLINE_MAX];
         strcpy (coppy, cmd);
         char *token;
         token = strtok(coppy," ");
         token = strtok(NULL," ");
-        if(token != NULL)
+        if (token == NULL)
         {
-             if(chdir(token)!=0){
-                *retval = 1;
-               fprintf(stderr, "Error: cannot cd into directory '%s' [%d]\n", cmd, *retval);
-                
-                  }
+             chdir(" ");   
         }
-        else{
-                 fprintf(stderr, "Error: missing argument for cd\n");
-                *retval = 1;
+        else  if(chdir(token)!=0){
+                retval = 1;
+                fprintf(stderr, "Error: cannot cd into directory\n");
         }
        
-        fprintf(stderr, "\n+ completed '%s' [%d]\n", cmd, *retval);
-
+        fprintf(stderr, "\n+ completed '%s' [%d]\n", cmd, retval);
 }
-
 /* pwd command */
 void Pwd(char *cmd, int retval){
-        // printf("Hello pwd received");
         char buff[CMDLINE_MAX];
         getcwd(buff, CMDLINE_MAX);
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
-
 }
-
 void Sls(char *cmd, int retval){
         DIR *Opendirectory;
         struct dirent *directory;
@@ -140,86 +103,67 @@ void Sls(char *cmd, int retval){
         /* if we cannot open directory, error happens */
         if (Opendirectory == NULL) {
                 perror("Error: cannot open directory");
-                return;
-
         }
-
         while ((directory = readdir(Opendirectory)) != NULL) {
-
                 /* ignoring the file with . or ..*/
                 if (strcmp(directory->d_name, ".") == 0 || strcmp(directory->d_name, "..") == 0)
                         continue;
                 struct stat file_info;
-
                 /* if it canot get information name, ignore it. */
                 if (stat(directory->d_name, &file_info) != 0) {
                         continue;
                 }
-
-                fprintf(stdout, "%s (%" PRIu64 " bytes)\n", directory->d_name, (uint64_t)file_info.st_size);
+                fprintf(stdout, "%s (%lld bytes)\n", directory->d_name, file_info.st_size);
         }
-
         closedir(Opendirectory);
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
 }
-
-void Ouputdirection(char *cmd, int retval){
-
+void Outputdirection(char *cmd, int retval){
         /* get ready for using strstr */
         char coppy[CMDLINE_MAX];
         char *token;
         char *check;
         strcpy (coppy, cmd);
         check = strstr(coppy, "<<");
-
+        strcpy (coppy, cmd);
+        if (!strncmp(coppy, "echo",4)) {
+            token = strtok(coppy," ");
+            token = strtok(NULL," ");
+            fprintf(stdout,"%s\n",token);
+        }
+        strcpy (coppy, cmd);
         /* if this file should be appended  */
         if(check != NULL ){
-
                 /* finding loaction of <<, get the output file name, then write in next line.  */
-
                 strcpy (coppy, cmd);
                 token = strstr(coppy,"<<");
                 token +=3;  
                 /* writing same content with stderr */
-
                 freopen(coppy, "a", stdout); 
                 fclose(stderr); 
-
         } else{
-
         /* if this file should be not appended  */
-
                 strcpy (coppy, cmd);
-                token = strtok(cmd,"<");
+                token = strtok(coppy,"<");
                 token = strtok(NULL," ");
-
                 /* writing new from the first line */
                 int file = open(token,  O_WRONLY | O_CREAT, 0666);
                 if (file == -1){
-                    perror("Error opening file");  // Use perror to print the error message
-                    fprintf(stderr, "file open error");
-
+                        fprintf(stderr, "file open error\n");
                 }
-                else {
-                    dup2(file, STDOUT_FILENO);
+                /*   */
+                dup2(file, STDOUT_FILENO);
                 close(file);
-                }
-
         }
-
 }
-
 void Piping(char *cmd, int retval) {
     int pipe_fd[2];
     pid_t child_pid;
     pipe(pipe_fd);
     child_pid = fork();
-
     if (child_pid == 0) {  // Child
         dup2(pipe_fd[0], STDIN_FILENO);
-
     } else {  // Parent
-
         dup2(pipe_fd[1], STDOUT_FILENO);
         wait(NULL);
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
@@ -227,117 +171,95 @@ void Piping(char *cmd, int retval) {
 }
 
 int fork_exec_wait(char cmd[CMDLINE_MAX]) {
-  int status = -1;
-  pid_t pid;
+        int status = -1;
+        pid_t pid;
+        char coppy[CMDLINE_MAX];
+        strcpy (coppy, cmd);
+        printf("enterd fork\n");
   // Tokenize the command and arguments
-    char *args[CMDLINE_MAX];
-    char *token = strtok(cmd, " ");
-    int i = 0;
+        char *args[CMDLINE_MAX];
+        char *token = strtok(coppy, " ");
+        int i = 0;
+        while (token != NULL) {
+                args[i++] = token;
+                token = strtok(NULL, " ");
+        }        
+        args[i] = NULL;  // Null-terminate the array
 
-    while (token != NULL) {
-        args[i++] = token;
-        token = strtok(NULL, " ");
-    }
+        //   char *args[] = {cmd, NULL};
+        pid = fork();
+        if (pid == 0) {
+                /* Child */
+                // printf("Child entered\n");
+                execvp(args[0], args);
+                                // printf("Child Done");
 
-    args[i] = NULL;  // Null-terminate the array
+                perror("execvp");
 
-//   char *args[] = {cmd, NULL};
-  pid = fork();
-  if (pid == 0) {
-    /* Child */
-    execvp(args[0], args);
-    perror("execvp");
-    exit(1);
+                exit(1);
 
-  } else if (pid > 0) {
-    /* Parent */
-    waitpid(pid, &status, 0);
-   // printf("Child returned %d\n", WEXITSTATUS(status));
-  } else {
-    perror("fork");
-    exit(1);
-  }
-  return WEXITSTATUS(status);
+        } else if (pid > 0) {
+                /* Parent */
+                // printf("parent entered\n");
+                waitpid(pid, &status, 0);
+                //  printf("Child returned %d\n", WEXITSTATUS(status));
+        } else {
+                perror("fork");
+                exit(1);
+                // printf("Neither parent or child\n");
+        }
+        return WEXITSTATUS(status);
 }
-
 int main(void)
 {
     char cmd[CMDLINE_MAX];
     while (1) {
-
             char *nl;
             int retval;
             char checkingRdirectAndPiping[CMDLINE_MAX];
-            
             /* Print prompt */
             printf("sshell$ ");
-        //     printf("command is %s", cmd);
             fflush(stdout);
-
-                // printf("command is now %s", cmd);
-
-
             /* Get command line */
+        //     printf("Cmd is now: %s", cmd);
             fgets(cmd, CMDLINE_MAX, stdin);
-
-
-
             /* Print command line if stdin is not provided by terminal */
             if (!isatty(STDIN_FILENO)) {
-
                     printf("%s", cmd);
                     fflush(stdout);
-
             }
-
             /* Remove trailing newline from command line */
             nl = strchr(cmd, '\n');
             if (nl)
-
                     *nl = '\0';
-
             /* Builtin command */
-            sytaxchecking(cmd);
+            syntaxchecking(cmd);
             if (!strcmp(cmd, "exit")) {
                     Exit(cmd, retval);
-
             }
-
             else if (!strcmp(cmd, "pwd")){
                     Pwd(cmd,retval);
             }
-
             else if (!strncmp(cmd, "cd",2)) {
-                    Cd(cmd, &retval);
+                    Cd(cmd, retval);
             }
-
             else if (!strcmp(cmd, "sls")){
                     Sls(cmd, retval);
             }
-            else{
-                  /* Regular command */
+            /* Regular command */
             retval = fork_exec_wait(cmd);
-            strcpy (checkingRdirectAndPiping, cmd);   
-            }
-                    
-
+            strcpy (checkingRdirectAndPiping, cmd);             
             if (strtok(checkingRdirectAndPiping,"<")!=NULL){
-                    Ouputdirection(cmd, retval);
+                    Outputdirection(cmd, retval);
             }
-         
+            
             strcpy (checkingRdirectAndPiping, cmd);
             if(strtok(checkingRdirectAndPiping,"|")!=NULL){
-
                     Piping(cmd, retval);
-
             }
-
     }
-
     return EXIT_SUCCESS;
-
 }
-
 /*visited websites
 https://stackoverflow.com/questions/1442116/how-to-get-the-date-and-time-values-in-a-c-program
 https://www.studytonight.com/c/programs/misc/display-current-date-and-time#:~:text=C%20Program%20to%20Display%20the,hh%3Amm%3Ass%20yyyy.
@@ -361,5 +283,3 @@ https://m.blog.naver.com/neakoo35/30133294306 detail of freeopen()
 https://velog.io/@hamys96/pipex2-%ED%8C%8C%EC%9D%B4%ED%94%84-%EA%B5%AC%ED%98%84 pipe(); pid1 = fork();
 https://nomad-programmer.tistory.com/110 concept for pipe.
 */
-
-
