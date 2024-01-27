@@ -219,8 +219,6 @@ int fork_exec_wait(char cmd[CMDLINE_MAX]) {
                 /* Child */              
 
                 execvp(args[0], args);
-                                printf("Child Done\n");
-
                 perror("execvp");
                 exit(1);
 
@@ -228,7 +226,7 @@ int fork_exec_wait(char cmd[CMDLINE_MAX]) {
                 /* Parent */
                 waitpid(pid, &status, 0);
                 // wait(NULL);
-                printf("Child returned %d\n", WEXITSTATUS(status));
+                // printf("Child returned %d\n", WEXITSTATUS(status));
         } else {
                 perror("fork");
                 exit(1);
