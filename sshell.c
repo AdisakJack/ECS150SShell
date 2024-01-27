@@ -188,12 +188,15 @@ void Piping(char *cmd, int retval) {
     child_pid = fork();
     if (child_pid == 0) {  // Child
         dup2(pipe_fd[0], STDIN_FILENO);
-    } else {  // Parent
-        dup2(pipe_fd[1], STDOUT_FILENO);
+         perror("dup2");
+                exit(1);
+    } else if (child_pid > 0){  // Parent
         wait(NULL);
+        dup2(pipe_fd[1], STDOUT_FILENO);
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
     }
 }
+
 
 int fork_exec_wait(char cmd[CMDLINE_MAX]) {
         int status = -1;
@@ -213,15 +216,19 @@ int fork_exec_wait(char cmd[CMDLINE_MAX]) {
         //   char *args[] = {cmd, NULL};
         pid = fork();
         if (pid == 0) {
-                /* Child */
+                /* Child */              
+
                 execvp(args[0], args);
+                                printf("Child Done\n");
+
                 perror("execvp");
                 exit(1);
 
         } else if (pid > 0) {
                 /* Parent */
                 waitpid(pid, &status, 0);
-                // printf("Child returned %d\n", WEXITSTATUS(status));
+                // wait(NULL);
+                printf("Child returned %d\n", WEXITSTATUS(status));
         } else {
                 perror("fork");
                 exit(1);
@@ -272,7 +279,7 @@ int main(void)
                     Outputdirection(cmd, retval);
             }
             strcpy (checkingRdirectAndPiping, cmd);
-            if(strtok(checkingRdirectAndPiping,"|")!=NULL){
+            if(strchr(checkingRdirectAndPiping,'|')!=NULL){
 
                     Piping(cmd, retval);
             }
