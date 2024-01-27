@@ -112,7 +112,7 @@ void Sls(char *cmd, int retval){
                 if (stat(directory->d_name, &file_info) != 0) {
                         continue;
                 }
-                fprintf(stdout, "%s (%lld bytes)\n", directory->d_name, file_info.st_size);
+                fprintf(stdout, "%s (%ld bytes)\n", directory->d_name, file_info.st_size);
         }
         closedir(Opendirectory);
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, retval);
